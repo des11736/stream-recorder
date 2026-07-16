@@ -28,9 +28,10 @@ ENV/
 htmlcov/
 .hypothesis/
 
-# PyInstaller 构建产物（保留 .spec 构建配置）
+# PyInstaller 构建产物与打包配置
 build/
 dist/
+*.spec
 *.spec.bak
 
 # 项目内附带的大型二进制 / 下载内容
