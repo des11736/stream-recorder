@@ -1,4 +1,5 @@
 import subprocess
+from io import StringIO
 from pathlib import Path
 
 import stream_recorder.recorder as recorder_module
@@ -17,6 +18,18 @@ class FakeRecorder:
 
     def stop(self) -> None:
         self.stopped += 1
+
+
+class CapturingLogger:
+    def __init__(self) -> None:
+        self.raw_lines: list[str] = []
+        self.events: list[object] = []
+
+    def raw(self, line: str) -> None:
+        self.raw_lines.append(line)
+
+    def log(self, event: object) -> None:
+        self.events.append(event)
 
 
 def test_retry_delays_are_bounded() -> None:
@@ -73,6 +86,67 @@ def test_progress_lines_with_media_time_refresh_watchdog() -> None:
     assert is_media_progress_line("out_time_ms=1200000")
     assert is_media_progress_line("out_time=00:00:01.20")
     assert not is_media_progress_line("progress=continue")
+
+
+def test_monitor_pts_jump_emits_warning_without_changing_recorder_status(tmp_path: Path) -> None:
+    logger = CapturingLogger()
+    recorder = Recorder(
+        TaskConfig("task-1", "Camera", "http://example.com/live", tmp_path),
+        Path("ffmpeg.exe"),
+        logger,
+        tmp_path / "output",
+    )
+    stream = StringIO(
+        "[info] frame= 2334 fps=1.0 time=00:38:54.00 bitrate=N/A\n"
+        "[info] frame= 2364 fps=1.0 time=00:39:24.00 bitrate=N/A\n"
+        "[info] frame= 2364 fps=1.0 time=00:39:24.00 bitrate=N/A\n"
+    )
+
+    recorder._read_stderr(stream, monitor=True)
+
+    assert len(logger.events) == 1
+    assert logger.events[0].category == "PTS 时间戳跳变"
+    assert recorder.status is TaskStatus.STOPPED
+
+
+def test_pts_jump_is_disabled_with_anomaly_detection(tmp_path: Path) -> None:
+    logger = CapturingLogger()
+    recorder = Recorder(
+        TaskConfig(
+            "task-1",
+            "Camera",
+            "http://example.com/live",
+            tmp_path,
+            enable_anomaly_detection=False,
+        ),
+        Path("ffmpeg.exe"),
+        logger,
+        tmp_path / "output",
+    )
+
+    recorder._read_stderr(
+        StringIO(
+            "[info] frame= 2334 fps=1.0 time=00:38:54.00 bitrate=N/A\n"
+            "[info] frame= 2364 fps=1.0 time=00:39:24.00 bitrate=N/A\n"
+        ),
+        monitor=True,
+    )
+
+    assert logger.events == []
+
+
+def test_pts_baseline_is_reset_for_each_recording_attempt(tmp_path: Path) -> None:
+    recorder = Recorder(
+        TaskConfig("task-1", "Camera", "http://example.com/live", tmp_path),
+        Path("ffmpeg.exe"),
+        CapturingLogger(),
+        tmp_path / "output",
+    )
+    recorder._last_monitor_media_time = 2334.0
+
+    recorder._reset_attempt_state()
+
+    assert recorder._last_monitor_media_time is None
 
 
 def test_task_output_directory_is_separate_and_safe(tmp_path: Path) -> None:

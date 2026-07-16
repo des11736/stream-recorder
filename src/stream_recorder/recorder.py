@@ -7,7 +7,12 @@ from threading import Event, Lock, Thread
 from time import monotonic
 
 from .event_logger import EventLogger
-from .events import LogEvent, parse_ffmpeg_line
+from .events import (
+    LogEvent,
+    build_pts_jump_event,
+    parse_ffmpeg_line,
+    parse_monitor_media_time,
+)
 from .ffmpeg_tools import build_anomaly_monitor_command, build_recorder_command
 from .models import OutputFormat, Severity, StreamInfo, TaskConfig, TaskStatus
 from .subprocess_options import hidden_console_kwargs
@@ -62,6 +67,7 @@ class Recorder:
         self._monitor_process: subprocess.Popen | None = None
         self._last_media_at = 0.0
         self._last_frame_at = 0.0
+        self._last_monitor_media_time: float | None = None
         self._no_frame_reported = False
         self._playlist_announced = False
 
@@ -91,6 +97,12 @@ class Recorder:
         self._stop_requested.clear()
         Thread(target=self._run, args=(info,), name=f"recorder-{self.config.task_id}", daemon=True).start()
 
+    def _reset_attempt_state(self) -> None:
+        self._last_media_at = monotonic()
+        self._last_frame_at = monotonic()
+        self._last_monitor_media_time = None
+        self._no_frame_reported = False
+
     def stop(self) -> None:
         self._stop_requested.set()
         self._terminate_children()
@@ -113,9 +125,7 @@ class Recorder:
                 )
 
             self._set_status(TaskStatus.RECORDING)
-            self._last_media_at = monotonic()
-            self._last_frame_at = monotonic()
-            self._no_frame_reported = False
+            self._reset_attempt_state()
 
             if self._run_once(info):
                 self._set_status(TaskStatus.STOPPED)
@@ -220,6 +230,19 @@ class Recorder:
             self.logger.raw(line)
             if monitor and "frame=" in line:
                 self._last_frame_at = monotonic()
+            if monitor and self.config.enable_anomaly_detection:
+                current_media_time = parse_monitor_media_time(line)
+                if current_media_time is not None:
+                    previous_media_time = self._last_monitor_media_time
+                    self._last_monitor_media_time = current_media_time
+                    if previous_media_time is not None:
+                        event = build_pts_jump_event(
+                            self.config.task_id,
+                            previous_media_time,
+                            current_media_time,
+                        )
+                        if event is not None:
+                            self.logger.log(event)
             if self.config.enable_anomaly_detection:
                 event = parse_ffmpeg_line(self.config.task_id, line)
                 if event is not None:
