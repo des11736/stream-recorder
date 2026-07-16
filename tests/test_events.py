@@ -2,8 +2,42 @@ from datetime import datetime
 from queue import Queue
 
 from stream_recorder.event_logger import EventLogger
-from stream_recorder.events import LogEvent, parse_ffmpeg_line
+from stream_recorder.events import (
+    MONITOR_PTS_JUMP_THRESHOLD_SECONDS,
+    LogEvent,
+    build_pts_jump_event,
+    parse_ffmpeg_line,
+    parse_monitor_media_time,
+)
 from stream_recorder.models import Severity
+
+
+def test_monitor_media_time_parses_video_status_line() -> None:
+    line = "[info] frame= 2334 fps=1.0 time=00:38:54.00 bitrate=N/A"
+
+    assert parse_monitor_media_time(line) == 2334.0
+
+
+def test_monitor_media_time_ignores_non_video_or_invalid_status_line() -> None:
+    assert parse_monitor_media_time("[info] time=00:38:54.00") is None
+    assert parse_monitor_media_time("[info] frame= 1 fps=1.0 time=N/A") is None
+
+
+def test_pts_jump_event_reports_exact_threshold_with_readable_times() -> None:
+    event = build_pts_jump_event("cam-1", 2334.0, 2364.0)
+
+    assert MONITOR_PTS_JUMP_THRESHOLD_SECONDS == 10.0
+    assert event is not None
+    assert event.severity is Severity.WARNING
+    assert event.category == "PTS 时间戳跳变"
+    assert "00:38:54.00" in event.message
+    assert "00:39:24.00" in event.message
+    assert "30.00 秒" in event.message
+
+
+def test_pts_jump_event_ignores_short_or_reverse_changes() -> None:
+    assert build_pts_jump_event("cam-1", 120.0, 129.99) is None
+    assert build_pts_jump_event("cam-1", 130.0, 120.0) is None
 
 
 def test_packet_drop_becomes_chinese_warning() -> None:

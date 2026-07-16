@@ -1,3 +1,4 @@
+import re
 from dataclasses import dataclass, field
 from datetime import datetime
 
@@ -11,6 +12,46 @@ class LogEvent:
     task_id: str = ""
     category: str = ""
     message: str = ""
+
+
+MONITOR_PTS_JUMP_THRESHOLD_SECONDS = 10.0
+_MONITOR_MEDIA_TIME = re.compile(
+    r"\bframe=\s*\d+.*?\btime=(\d+):(\d{2}):(\d{2}(?:\.\d+)?)"
+)
+
+
+def parse_monitor_media_time(line: str) -> float | None:
+    """Extract the media timestamp from one FFmpeg video-monitor status line."""
+    match = _MONITOR_MEDIA_TIME.search(line)
+    if match is None:
+        return None
+    hours, minutes, seconds = match.groups()
+    return int(hours) * 3600 + int(minutes) * 60 + float(seconds)
+
+
+def _format_monitor_media_time(seconds: float) -> str:
+    hours, remainder = divmod(seconds, 3600)
+    minutes, second_part = divmod(remainder, 60)
+    return f"{int(hours):02d}:{int(minutes):02d}:{second_part:05.2f}"
+
+
+def build_pts_jump_event(
+    task_id: str, previous_seconds: float, current_seconds: float
+) -> LogEvent | None:
+    """Return a warning when consecutive monitor timestamps jump forward."""
+    jump_seconds = current_seconds - previous_seconds
+    if jump_seconds < MONITOR_PTS_JUMP_THRESHOLD_SECONDS:
+        return None
+    return LogEvent(
+        severity=Severity.WARNING,
+        task_id=task_id,
+        category="PTS 时间戳跳变",
+        message=(
+            f"原始视频时间从 {_format_monitor_media_time(previous_seconds)} 跳至 "
+            f"{_format_monitor_media_time(current_seconds)}（前跳 {jump_seconds:.2f} 秒）；"
+            "上游流可能丢失画面或时间戳异常，收录继续。"
+        ),
+    )
 
 
 def parse_ffmpeg_line(task_id: str, line: str) -> LogEvent | None:
