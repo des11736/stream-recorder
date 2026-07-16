@@ -17,6 +17,7 @@ from PySide6.QtWidgets import (
     QGridLayout,
     QGroupBox,
     QHBoxLayout,
+    QHeaderView,
     QLabel,
     QLineEdit,
     QMainWindow,
@@ -226,11 +227,13 @@ class MainWindow(QMainWindow):
         self.task_table.verticalHeader().setVisible(False)
         self.task_table.setShowGrid(False)
         header = self.task_table.horizontalHeader()
-        header.setStretchLastSection(True)
+        header.setStretchLastSection(False)
         header.setDefaultSectionSize(112)
+        header.setSectionResizeMode(6, QHeaderView.ResizeMode.Stretch)
+        header.setSectionResizeMode(7, QHeaderView.ResizeMode.Fixed)
         self.task_table.setColumnWidth(0, 150)
         self.task_table.setColumnWidth(5, 200)
-        self.task_table.setColumnWidth(6, 260)
+        self.task_table.setColumnWidth(7, 120)
         layout.addWidget(self.task_table)
         return panel
 
@@ -290,7 +293,7 @@ class MainWindow(QMainWindow):
             QPushButton:hover { background: #eff5ff; border-color: #7da5ea; }
             QPushButton#startButton { background: #2563eb; color: #ffffff; border: 1px solid #2563eb; font-size: 14px; padding: 10px 18px; }
             QPushButton#startButton:hover { background: #1d4ed8; border-color: #1d4ed8; }
-            QPushButton#secondaryButton { background: #ffffff; color: #365a94; border-color: #c8d8ef; }
+            QPushButton#secondaryButton, QPushButton#stopTaskButton { background: #ffffff; color: #365a94; border-color: #c8d8ef; }
             QPushButton#detectionToggle { background: #effcf4; border-color: #a9dfbd; color: #168447; }
             QPushButton#detectionToggle:hover { background: #dcf7e6; border-color: #72cb91; }
             QPushButton#detectionToggle:!checked { background: #fff7ed; border-color: #fdc98c; color: #ba6421; }
@@ -369,10 +372,19 @@ class MainWindow(QMainWindow):
             if column == 3:
                 item.setForeground(QColor("#e9ad4d") if status != TaskStatus.RECORDING.value else QColor("#9fd9bd"))
             self.task_table.setItem(row, column, item)
+        action_host = QWidget()
+        action_host.setStyleSheet("background: transparent;")
+        action_host.setAutoFillBackground(False)
+        action_layout = QHBoxLayout(action_host)
+        action_layout.setContentsMargins(0, 0, 0, 0)
+        action_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
         stop_button = QPushButton("停止")
-        stop_button.setObjectName("secondaryButton")
+        stop_button.setObjectName("stopTaskButton")
+        stop_button.setFixedSize(96, 30)
         stop_button.clicked.connect(lambda _checked=False, task_id=config.task_id: self.stop_requested.emit(task_id))
-        self.task_table.setCellWidget(row, 7, stop_button)
+        action_layout.addWidget(stop_button)
+        self.task_table.setCellWidget(row, 7, action_host)
 
     def update_task(
         self,
