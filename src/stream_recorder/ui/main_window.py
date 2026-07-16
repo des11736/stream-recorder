@@ -12,7 +12,6 @@ from PySide6.QtGui import QColor
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QCheckBox,
-    QComboBox,
     QFileDialog,
     QFrame,
     QGridLayout,
@@ -24,13 +23,13 @@ from PySide6.QtWidgets import (
     QMessageBox,
     QPushButton,
     QPlainTextEdit,
-    QSpinBox,
     QTableWidget,
     QTableWidgetItem,
     QVBoxLayout,
     QWidget,
 )
 
+from .controls import ChevronComboBox, ChevronSpinBox
 from ..duration import RecordingDuration, format_duration
 from ..events import LogEvent
 from ..models import OutputFormat, TaskConfig, TaskStatus
@@ -100,7 +99,14 @@ class MainWindow(QMainWindow):
         header = QFrame()
         header.setObjectName("header")
         layout = QHBoxLayout(header)
-        layout.setContentsMargins(18, 12, 18, 12)
+        layout.setContentsMargins(28, 16, 28, 16)
+
+        brand_mark = QLabel("▶")
+        brand_mark.setObjectName("brandMark")
+        brand_mark.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        brand_mark.setFixedSize(70, 70)
+        layout.addWidget(brand_mark)
+        layout.addSpacing(14)
 
         title_box = QVBoxLayout()
         eyebrow = QLabel("STREAM // CAPTURE")
@@ -119,13 +125,11 @@ class MainWindow(QMainWindow):
         return header
 
     def _build_capture_panel(self) -> QWidget:
-        panel = QGroupBox("新建收录任务")
+        panel = QGroupBox("✚  新建收录任务")
         panel.setObjectName("capturePanel")
-        grid = QGridLayout(panel)
-        self.capture_grid = grid
-        grid.setContentsMargins(18, 18, 18, 16)
-        grid.setHorizontalSpacing(12)
-        grid.setVerticalSpacing(10)
+        layout = QVBoxLayout(panel)
+        layout.setContentsMargins(22, 18, 22, 18)
+        layout.setSpacing(14)
 
         self.name_edit = QLineEdit()
         self.name_edit.setPlaceholderText("例如：前门摄像头")
@@ -141,14 +145,14 @@ class MainWindow(QMainWindow):
         self.output_button.setMaximumWidth(72)
         self.output_button.clicked.connect(self._choose_output_root)
 
-        self.segment_spin = QSpinBox()
+        self.segment_spin = ChevronSpinBox()
         self.segment_spin.setRange(2, 60)
         self.segment_spin.setValue(6)
         self.segment_spin.setSuffix(" 秒")
         self.segment_spin.setToolTip("仅 m3u8 收录使用此切片长度。")
         self.segment_label = QLabel("切片长度")
 
-        self.format_combo = QComboBox()
+        self.format_combo = ChevronComboBox()
         self.format_combo.addItem("m3u8（HLS）", OutputFormat.HLS)
         self.format_combo.addItem("MP4", OutputFormat.MP4)
         self.format_combo.currentIndexChanged.connect(self._set_output_format)
@@ -165,26 +169,52 @@ class MainWindow(QMainWindow):
         self.start_button.setObjectName("startButton")
         self.start_button.clicked.connect(self._request_start)
 
-        grid.addWidget(QLabel("任务名称"), 0, 0)
-        grid.addWidget(QLabel("流地址"), 0, 1, 1, 3)
-        grid.addWidget(self.name_edit, 1, 0)
-        grid.addWidget(self.url_edit, 1, 1, 1, 3)
-        grid.addWidget(QLabel("输出位置"), 2, 0, 1, 2)
-        grid.addWidget(self.segment_label, 2, 2)
-        grid.addWidget(self.format_label, 2, 3)
-        grid.addWidget(self.output_edit, 3, 0)
-        grid.addWidget(self.output_button, 3, 1)
-        grid.addWidget(self.segment_spin, 3, 2)
-        grid.addWidget(self.format_combo, 3, 3)
-        grid.addWidget(self.anomaly_button, 4, 0, 1, 3)
-        grid.addWidget(self.start_button, 4, 3)
-        grid.setColumnStretch(0, 2)
-        grid.setColumnStretch(2, 1)
-        grid.setColumnStretch(3, 1)
+        self.capture_top_grid = QGridLayout()
+        self.capture_top_grid.setHorizontalSpacing(18)
+        self.capture_top_grid.setVerticalSpacing(8)
+        self.capture_top_grid.setColumnStretch(0, 3)
+        self.capture_top_grid.setColumnStretch(1, 7)
+        self.capture_top_grid.addWidget(QLabel("任务名称"), 0, 0)
+        self.capture_top_grid.addWidget(QLabel("流地址"), 0, 1)
+        self.capture_top_grid.addWidget(self.name_edit, 1, 0)
+        self.capture_top_grid.addWidget(self.url_edit, 1, 1)
+
+        output_host = QWidget()
+        output_layout = QHBoxLayout(output_host)
+        output_layout.setContentsMargins(0, 0, 0, 0)
+        output_layout.setSpacing(10)
+        output_layout.addWidget(self.output_edit, stretch=1)
+        output_layout.addWidget(self.output_button)
+
+        self.capture_actions_host = QWidget()
+        actions = QHBoxLayout(self.capture_actions_host)
+        actions.setContentsMargins(0, 0, 0, 0)
+        actions.setSpacing(10)
+        self.anomaly_button.setFixedSize(156, 46)
+        self.start_button.setFixedSize(156, 46)
+        actions.addWidget(self.anomaly_button)
+        actions.addWidget(self.start_button)
+
+        self.capture_bottom_grid = QGridLayout()
+        self.capture_bottom_grid.setHorizontalSpacing(18)
+        self.capture_bottom_grid.setVerticalSpacing(8)
+        self.capture_bottom_grid.setColumnStretch(0, 4)
+        self.capture_bottom_grid.setColumnStretch(1, 2)
+        self.capture_bottom_grid.setColumnStretch(2, 2)
+        self.capture_bottom_grid.addWidget(QLabel("输出位置"), 0, 0)
+        self.capture_bottom_grid.addWidget(self.segment_label, 0, 1)
+        self.capture_bottom_grid.addWidget(self.format_label, 0, 2)
+        self.capture_bottom_grid.addWidget(output_host, 1, 0)
+        self.capture_bottom_grid.addWidget(self.segment_spin, 1, 1)
+        self.capture_bottom_grid.addWidget(self.format_combo, 1, 2)
+        self.capture_bottom_grid.addWidget(self.capture_actions_host, 1, 3)
+
+        layout.addLayout(self.capture_top_grid)
+        layout.addLayout(self.capture_bottom_grid)
         return panel
 
     def _build_task_panel(self) -> QWidget:
-        panel = QGroupBox("运行任务")
+        panel = QGroupBox("✚  运行任务")
         layout = QVBoxLayout(panel)
         layout.setContentsMargins(12, 14, 12, 12)
         self.task_table = QTableWidget(0, len(self._TABLE_COLUMNS))
@@ -205,12 +235,12 @@ class MainWindow(QMainWindow):
         return panel
 
     def _build_log_panel(self) -> QWidget:
-        panel = QGroupBox("实时中文日志")
+        panel = QGroupBox("▣  实时中文日志")
         layout = QVBoxLayout(panel)
         layout.setContentsMargins(12, 14, 12, 12)
 
         toolbar = QHBoxLayout()
-        self.log_filter = QComboBox()
+        self.log_filter = ChevronComboBox()
         self.log_filter.addItems(("全部事件", "信息", "警告", "错误"))
         self.log_filter.currentTextChanged.connect(self._render_logs)
         self.follow_check = QCheckBox("自动跟随")
@@ -235,31 +265,43 @@ class MainWindow(QMainWindow):
     def _apply_console_theme(self) -> None:
         self.setStyleSheet(
             """
-            QMainWindow { background: #10181d; color: #e3e9e7; }
-            QWidget { font-family: "Microsoft YaHei UI"; font-size: 13px; color: #d7e0de; }
-            QFrame#header { background: #162329; border: 1px solid #29444a; border-left: 4px solid #e9ad4d; }
-            QLabel#eyebrow { color: #7aa9a5; font-family: "Bahnschrift"; font-size: 11px; font-weight: 700; letter-spacing: 2px; }
-            QLabel#title { color: #f5f0e6; font-size: 23px; font-weight: 700; }
-            QLabel#engineBadge { color: #a6d6c0; background: #1c3a35; border: 1px solid #386e61; border-radius: 10px; padding: 6px 12px; font-family: "Bahnschrift"; font-weight: 600; }
-            QGroupBox { background: #142026; border: 1px solid #294149; border-radius: 4px; margin-top: 13px; padding-top: 13px; font-weight: 700; color: #e9ad4d; }
-            QGroupBox::title { subcontrol-origin: margin; left: 12px; padding: 0 6px; }
-            QLineEdit, QSpinBox, QComboBox, QPlainTextEdit { background: #0d151a; border: 1px solid #34505a; border-radius: 3px; padding: 7px 9px; color: #edf5f2; selection-background-color: #2f6b68; }
-            QLineEdit#urlEdit { border-color: #5b8f8a; font-family: "Cascadia Mono"; font-size: 13px; }
-            QLineEdit:focus, QSpinBox:focus, QComboBox:focus { border: 1px solid #e9ad4d; }
-            QPushButton { background: #263d45; border: 1px solid #42616a; border-radius: 3px; padding: 8px 13px; color: #eff4f2; font-weight: 600; }
-            QPushButton:hover { background: #34535c; }
-            QPushButton#startButton { background: #e9ad4d; color: #172026; border: 1px solid #ffd181; font-size: 14px; padding: 10px 18px; }
-            QPushButton#startButton:hover { background: #f5c264; }
-            QPushButton#secondaryButton { background: #1a2a31; }
-            QPushButton#detectionToggle { background: #1c3a35; border-color: #386e61; color: #bde4d3; }
-            QPushButton#detectionToggle:!checked { background: #2a2520; border-color: #6d5536; color: #d5c4a7; }
-            QTableWidget { background: #10191e; alternate-background-color: #16242a; border: 0; color: #dce6e3; gridline-color: #263b43; }
-            QHeaderView::section { background: #1c2c33; color: #92bbb5; border: 0; border-bottom: 1px solid #36525a; padding: 8px 6px; font-family: "Bahnschrift"; font-size: 11px; }
-            QTableWidget::item:selected { background: #29494d; color: #ffffff; }
-            QPlainTextEdit { color: #c8d5d1; font-family: "Cascadia Mono"; font-size: 12px; background: #0b1115; border-color: #263d45; }
-            QCheckBox { spacing: 7px; }
-            QCheckBox::indicator { width: 14px; height: 14px; border: 1px solid #54767a; background: #0d151a; }
-            QCheckBox::indicator:checked { background: #e9ad4d; border-color: #ffd181; }
+            QMainWindow { background: #f6f9ff; color: #17223b; }
+            QWidget { font-family: "Microsoft YaHei UI"; font-size: 13px; color: #17223b; }
+            QFrame#header { background: qlineargradient(x1: 0, y1: 0, x2: 1, y2: 1, stop: 0 #ffffff, stop: 1 #f3f7ff); border: 1px solid #dce7f7; border-radius: 14px; }
+            QLabel#brandMark { background: qradialgradient(cx: 0.35, cy: 0.3, radius: 1, stop: 0 #eff6ff, stop: 0.55 #bcd6ff, stop: 1 #2563eb); border: 7px solid #dce9ff; border-radius: 35px; color: #ffffff; font-size: 25px; font-weight: 700; }
+            QLabel#eyebrow { color: #3567f0; font-family: "Bahnschrift"; font-size: 11px; font-weight: 700; letter-spacing: 2px; }
+            QLabel#title { color: #12203d; font-size: 27px; font-weight: 700; }
+            QLabel#engineBadge { color: #138a48; background: #f4fbf7; border: 1px solid #cfe8da; border-radius: 12px; padding: 9px 15px; font-family: "Bahnschrift"; font-weight: 700; }
+            QGroupBox { background: #ffffff; border: 1px solid #dce7f7; border-radius: 14px; margin-top: 16px; padding-top: 17px; font-size: 16px; font-weight: 700; color: #17223b; }
+            QGroupBox::title { subcontrol-origin: margin; left: 14px; padding: 0 8px; color: #17223b; }
+            QLineEdit, QSpinBox, QComboBox, QPlainTextEdit { background: #ffffff; border: 1px solid #d7e3f4; border-radius: 8px; padding: 10px 12px; color: #17223b; selection-background-color: #cfe0ff; }
+            QComboBox { padding-right: 42px; }
+            QComboBox::drop-down { width: 34px; border: none; border-left: 1px solid #e1eaf7; border-top-right-radius: 7px; border-bottom-right-radius: 7px; background: #f7faff; }
+            QComboBox::drop-down:hover { background: #eaf2ff; }
+            QComboBox::down-arrow { image: none; width: 9px; height: 7px; }
+            QSpinBox { padding-right: 38px; }
+            QSpinBox::up-button { width: 26px; border: none; border-left: 1px solid #e1eaf7; border-top-right-radius: 7px; background: #f7faff; }
+            QSpinBox::down-button { width: 26px; border: none; border-top: 1px solid #e1eaf7; border-left: 1px solid #e1eaf7; border-bottom-right-radius: 7px; background: #f7faff; }
+            QSpinBox::up-button:hover, QSpinBox::down-button:hover { background: #eaf2ff; }
+            QSpinBox::up-arrow, QSpinBox::down-arrow { image: none; width: 8px; height: 6px; }
+            QLineEdit#urlEdit { border-color: #b9cff5; font-family: "Cascadia Mono"; font-size: 13px; }
+            QLineEdit:focus, QSpinBox:focus, QComboBox:focus { border: 1px solid #2563eb; }
+            QPushButton { background: #ffffff; border: 1px solid #bcd0f2; border-radius: 8px; padding: 8px 13px; color: #1d3f7b; font-weight: 700; }
+            QPushButton:hover { background: #eff5ff; border-color: #7da5ea; }
+            QPushButton#startButton { background: #2563eb; color: #ffffff; border: 1px solid #2563eb; font-size: 14px; padding: 10px 18px; }
+            QPushButton#startButton:hover { background: #1d4ed8; border-color: #1d4ed8; }
+            QPushButton#secondaryButton { background: #ffffff; color: #365a94; border-color: #c8d8ef; }
+            QPushButton#detectionToggle { background: #effcf4; border-color: #a9dfbd; color: #168447; }
+            QPushButton#detectionToggle:hover { background: #dcf7e6; border-color: #72cb91; }
+            QPushButton#detectionToggle:!checked { background: #fff7ed; border-color: #fdc98c; color: #ba6421; }
+            QTableWidget { background: #ffffff; alternate-background-color: #f8fbff; border: 1px solid #dce7f7; border-radius: 8px; color: #1d2a43; gridline-color: #e2ebf7; }
+            QHeaderView::section { background: #f4f8ff; color: #38517d; border: 0; border-bottom: 1px solid #dce7f7; padding: 10px 7px; font-family: "Microsoft YaHei UI"; font-size: 12px; font-weight: 700; }
+            QTableWidget::item { padding: 0 7px; }
+            QTableWidget::item:selected { background: #dbeafe; color: #17223b; }
+            QPlainTextEdit { color: #263750; font-family: "Cascadia Mono"; font-size: 12px; background: #ffffff; border-color: #dce7f7; }
+            QCheckBox { spacing: 7px; color: #36517d; }
+            QCheckBox::indicator { width: 15px; height: 15px; border: 1px solid #aabdd8; border-radius: 4px; background: #ffffff; }
+            QCheckBox::indicator:checked { background: #2563eb; border-color: #2563eb; }
             """
         )
 
@@ -273,11 +315,11 @@ class MainWindow(QMainWindow):
         is_hls = OutputFormat(self.format_combo.currentData()) is OutputFormat.HLS
         self.segment_label.setHidden(not is_hls)
         self.segment_spin.setHidden(not is_hls)
-        format_column = 3 if is_hls else 2
-        self.capture_grid.removeWidget(self.format_label)
-        self.capture_grid.removeWidget(self.format_combo)
-        self.capture_grid.addWidget(self.format_label, 2, format_column)
-        self.capture_grid.addWidget(self.format_combo, 3, format_column)
+        format_column = 2 if is_hls else 1
+        self.capture_bottom_grid.removeWidget(self.format_label)
+        self.capture_bottom_grid.removeWidget(self.format_combo)
+        self.capture_bottom_grid.addWidget(self.format_label, 0, format_column)
+        self.capture_bottom_grid.addWidget(self.format_combo, 1, format_column)
 
     def _set_anomaly_detection_label(self, enabled: bool) -> None:
         self.anomaly_button.setText("异常检测：开启" if enabled else "异常检测：关闭")
