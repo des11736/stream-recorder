@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "stream-recorder"
+version = "1.0.0"
+description = "Windows HLS stream recorder with Chinese diagnostics"
+requires-python = ">=3.10"
+dependencies = [
+    "PySide6>=6.8",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4",
+    "pyinstaller>=6.0",
+]
+
+[project.scripts]
+stream-recorder = "stream_recorder.main:main"
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+markers = [
+    "integration: requires a working local FFmpeg binary",
+]

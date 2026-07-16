@@ -1,0 +1,66 @@
+# Python 字节码与构建产物
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+.eggs/
+sdist/
+wheels/
+*.egg
+develop-eggs/
+
+# 虚拟环境
+.venv/
+venv/
+env/
+ENV/
+.python-version
+
+# 测试 / 类型检查缓存
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.tox/
+.coverage
+.coverage.*
+htmlcov/
+.hypothesis/
+
+# PyInstaller 构建产物（保留 .spec 构建配置）
+build/
+dist/
+*.spec.bak
+
+# 项目内附带的大型二进制 / 下载内容
+# FFmpeg 下载与解压目录
+downloads/
+# 随包附带的 FFmpeg 二进制
+bundled/
+# 验证用 FFmpeg 二进制
+verification_resources/
+
+# 运行日志
+*.log
+logs/
+
+# IDE / 编辑器
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.project
+.pydevproject
+
+# 操作系统
+Thumbs.db
+ehthumbs.db
+desktop.ini
+.DS_Store
+
+# 临时 / 备份
+*.tmp
+*.bak
+*.old
