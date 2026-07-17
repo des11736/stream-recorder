@@ -46,6 +46,9 @@ verification_resources/
 *.log
 logs/
 
+# 开发过程文档（非源代码，不纳入版本控制）
+docs/
+
 # IDE / 编辑器
 .vscode/
 .idea/
