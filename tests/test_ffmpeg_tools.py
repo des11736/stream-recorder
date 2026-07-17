@@ -12,7 +12,7 @@ from stream_recorder.ffmpeg_tools import (
     parse_probe_json,
     run_probe,
 )
-from stream_recorder.models import OutputFormat, TaskConfig
+from stream_recorder.models import HlsSegmentType, OutputFormat, TaskConfig
 
 
 def _config(tmp_path: Path, source_url: str = "rtsp://example.com/live") -> TaskConfig:
@@ -44,6 +44,37 @@ def test_h265_probe_builds_stream_copy_fmp4_hls_command(tmp_path: Path) -> None:
     assert command[command.index("-rtsp_transport") + 1] == "tcp"
     assert command[command.index("-hls_fmp4_init_filename") + 1] == "init.mp4"
     assert command[command.index("-hls_segment_filename") + 1] == "segment_%012d.m4s"
+    assert command[-1] == "index.m3u8"
+
+
+def test_ts_segment_type_builds_mpegts_hls_command(tmp_path: Path) -> None:
+    info = parse_probe_json(
+        {
+            "streams": [
+                {
+                    "codec_type": "video",
+                    "codec_name": "h264",
+                    "width": 1920,
+                    "height": 1080,
+                    "avg_frame_rate": "25/1",
+                },
+                {"codec_type": "audio", "codec_name": "aac"},
+            ]
+        }
+    )
+    config = TaskConfig(
+        "task-1",
+        "前门摄像头",
+        "rtsp://example.com/live",
+        tmp_path,
+        hls_segment_type=HlsSegmentType.TS,
+    )
+
+    command = build_recorder_command(Path("ffmpeg.exe"), config, info, tmp_path / "output")
+
+    assert command[command.index("-hls_segment_type") + 1] == "mpegts"
+    assert command[command.index("-hls_segment_filename") + 1] == "segment_%012d.ts"
+    assert "-hls_fmp4_init_filename" not in command
     assert command[-1] == "index.m3u8"
 
 

@@ -5,11 +5,11 @@ from queue import Queue
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 import pytest
+from PySide6.QtCore import QSettings, QSize
 from PySide6.QtWidgets import QApplication
-from PySide6.QtCore import QSettings
 
 from stream_recorder.events import LogEvent
-from stream_recorder.models import OutputFormat, Severity, TaskStatus
+from stream_recorder.models import HlsSegmentType, OutputFormat, Severity, TaskStatus
 from stream_recorder.task_controller import TaskController
 from stream_recorder.ui.main_window import MainWindow
 
@@ -34,26 +34,54 @@ def test_main_window_prioritizes_address_entry_and_realtime_logs(tmp_path) -> No
     assert window.segment_label.text() == "切片长度"
     assert not window.segment_label.isHidden()
     assert not window.segment_spin.isHidden()
-    assert _grid_position(window, window.format_label) == (2, 3, 1, 1)
-    assert _grid_position(window, window.format_combo) == (3, 3, 1, 1)
+    assert window.segment_type_label.text() == "切片格式"
+    assert not window.segment_type_label.isHidden()
+    assert not window.segment_type_combo.isHidden()
+    assert window.capture_top_grid.columnStretch(0) == 3
+    assert window.capture_top_grid.columnStretch(1) == 7
+    assert _grid_position(window.capture_top_grid, window.name_edit) == (1, 0, 1, 1)
+    assert _grid_position(window.capture_top_grid, window.url_edit) == (1, 1, 1, 1)
+    assert _grid_position(window.capture_bottom_grid, window.segment_type_label) == (0, 2, 1, 1)
+    assert _grid_position(window.capture_bottom_grid, window.segment_type_combo) == (1, 2, 1, 1)
+    assert _grid_position(window.capture_bottom_grid, window.format_label) == (0, 3, 1, 1)
+    assert _grid_position(window.capture_bottom_grid, window.format_combo) == (1, 3, 1, 1)
+    assert _grid_position(window.capture_bottom_grid, window.capture_actions_host) == (1, 4, 1, 1)
+    assert window.anomaly_button.minimumSize() == QSize(156, 46)
+    assert window.start_button.minimumSize() == QSize(156, 46)
+    assert window.anomaly_button.maximumSize() == QSize(156, 46)
+    assert window.start_button.maximumSize() == QSize(156, 46)
+    assert type(window.format_combo).__name__ == "ChevronComboBox"
+    assert type(window.log_filter).__name__ == "ChevronComboBox"
+    assert type(window.segment_spin).__name__ == "ChevronSpinBox"
+    assert type(window.segment_type_combo).__name__ == "ChevronComboBox"
+    style = window.styleSheet()
+    assert "QMainWindow { background: #f6f9ff" in style
+    assert "QPushButton#startButton { background: #2563eb" in style
+    assert "QGroupBox { background: #ffffff" in style
+    assert "QComboBox::drop-down { width: 34px;" in style
+    assert "QSpinBox::up-button { width: 26px;" in style
 
     window.format_combo.setCurrentIndex(1)
 
     assert window.segment_label.isHidden()
     assert window.segment_spin.isHidden()
-    assert _grid_position(window, window.format_label) == (2, 2, 1, 1)
-    assert _grid_position(window, window.format_combo) == (3, 2, 1, 1)
+    assert window.segment_type_label.isHidden()
+    assert window.segment_type_combo.isHidden()
+    assert _grid_position(window.capture_bottom_grid, window.format_label) == (0, 1, 1, 1)
+    assert _grid_position(window.capture_bottom_grid, window.format_combo) == (1, 1, 1, 1)
 
     window.format_combo.setCurrentIndex(0)
 
     assert not window.segment_label.isHidden()
     assert not window.segment_spin.isHidden()
-    assert _grid_position(window, window.format_label) == (2, 3, 1, 1)
-    assert _grid_position(window, window.format_combo) == (3, 3, 1, 1)
+    assert not window.segment_type_label.isHidden()
+    assert not window.segment_type_combo.isHidden()
+    assert _grid_position(window.capture_bottom_grid, window.format_label) == (0, 3, 1, 1)
+    assert _grid_position(window.capture_bottom_grid, window.format_combo) == (1, 3, 1, 1)
 
 
-def _grid_position(window: MainWindow, widget) -> tuple[int, int, int, int]:
-    return window.capture_grid.getItemPosition(window.capture_grid.indexOf(widget))
+def _grid_position(grid, widget) -> tuple[int, int, int, int]:
+    return grid.getItemPosition(grid.indexOf(widget))
 
 
 def test_task_request_carries_selected_format_and_anomaly_toggle(tmp_path) -> None:
@@ -71,6 +99,22 @@ def test_task_request_carries_selected_format_and_anomaly_toggle(tmp_path) -> No
     assert len(captured) == 1
     assert captured[0].output_format is OutputFormat.MP4
     assert not captured[0].enable_anomaly_detection
+
+
+def test_task_request_carries_selected_hls_segment_type(tmp_path) -> None:
+    app = QApplication.instance() or QApplication([])
+    event_queue: Queue[LogEvent] = Queue()
+    window = MainWindow(TaskController(), event_queue, tmp_path, settings=_ini_settings(tmp_path))
+    captured = []
+    window.start_requested.connect(captured.append)
+    window.url_edit.setText("http://example.com/live")
+    window.segment_type_combo.setCurrentIndex(1)
+
+    window._request_start()
+
+    assert len(captured) == 1
+    assert captured[0].output_format is OutputFormat.HLS
+    assert captured[0].hls_segment_type is HlsSegmentType.TS
 
 
 def test_realtime_event_is_rendered_with_chinese_category(tmp_path) -> None:

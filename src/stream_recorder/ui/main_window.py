@@ -33,7 +33,7 @@ from PySide6.QtWidgets import (
 from .controls import ChevronComboBox, ChevronSpinBox
 from ..duration import RecordingDuration, format_duration
 from ..events import LogEvent
-from ..models import OutputFormat, TaskConfig, TaskStatus
+from ..models import HlsSegmentType, OutputFormat, TaskConfig, TaskStatus
 from ..task_controller import TaskController
 from ..urls import normalize_stream_url, validate_segment_seconds, validate_stream_url
 
@@ -159,6 +159,12 @@ class MainWindow(QMainWindow):
         self.format_combo.currentIndexChanged.connect(self._set_output_format)
         self.format_label = QLabel("收录格式")
 
+        self.segment_type_combo = ChevronComboBox()
+        self.segment_type_combo.addItem("m4s（fMP4）", HlsSegmentType.FMP4)
+        self.segment_type_combo.addItem("ts（MPEG-TS）", HlsSegmentType.TS)
+        self.segment_type_combo.setToolTip("仅 m3u8 收录使用此切片格式。")
+        self.segment_type_label = QLabel("切片格式")
+
         self.anomaly_button = QPushButton("异常检测：开启")
         self.anomaly_button.setObjectName("detectionToggle")
         self.anomaly_button.setCheckable(True)
@@ -202,13 +208,16 @@ class MainWindow(QMainWindow):
         self.capture_bottom_grid.setColumnStretch(0, 4)
         self.capture_bottom_grid.setColumnStretch(1, 2)
         self.capture_bottom_grid.setColumnStretch(2, 2)
+        self.capture_bottom_grid.setColumnStretch(3, 2)
         self.capture_bottom_grid.addWidget(QLabel("输出位置"), 0, 0)
         self.capture_bottom_grid.addWidget(self.segment_label, 0, 1)
-        self.capture_bottom_grid.addWidget(self.format_label, 0, 2)
+        self.capture_bottom_grid.addWidget(self.segment_type_label, 0, 2)
+        self.capture_bottom_grid.addWidget(self.format_label, 0, 3)
         self.capture_bottom_grid.addWidget(output_host, 1, 0)
         self.capture_bottom_grid.addWidget(self.segment_spin, 1, 1)
-        self.capture_bottom_grid.addWidget(self.format_combo, 1, 2)
-        self.capture_bottom_grid.addWidget(self.capture_actions_host, 1, 3)
+        self.capture_bottom_grid.addWidget(self.segment_type_combo, 1, 2)
+        self.capture_bottom_grid.addWidget(self.format_combo, 1, 3)
+        self.capture_bottom_grid.addWidget(self.capture_actions_host, 1, 4)
 
         layout.addLayout(self.capture_top_grid)
         layout.addLayout(self.capture_bottom_grid)
@@ -318,7 +327,9 @@ class MainWindow(QMainWindow):
         is_hls = OutputFormat(self.format_combo.currentData()) is OutputFormat.HLS
         self.segment_label.setHidden(not is_hls)
         self.segment_spin.setHidden(not is_hls)
-        format_column = 2 if is_hls else 1
+        self.segment_type_label.setHidden(not is_hls)
+        self.segment_type_combo.setHidden(not is_hls)
+        format_column = 3 if is_hls else 1
         self.capture_bottom_grid.removeWidget(self.format_label)
         self.capture_bottom_grid.removeWidget(self.format_combo)
         self.capture_bottom_grid.addWidget(self.format_label, 0, format_column)
@@ -338,6 +349,7 @@ class MainWindow(QMainWindow):
 
         name = self.name_edit.text().strip() or f"流任务 {self.task_table.rowCount() + 1}"
         output_format = OutputFormat(self.format_combo.currentData())
+        hls_segment_type = HlsSegmentType(self.segment_type_combo.currentData())
         config = TaskConfig(
             task_id=uuid4().hex,
             name=name,
@@ -345,6 +357,7 @@ class MainWindow(QMainWindow):
             output_root=self.output_root,
             segment_seconds=segment_seconds,
             output_format=output_format,
+            hls_segment_type=hls_segment_type,
             enable_anomaly_detection=self.anomaly_button.isChecked(),
         )
         self.add_task_row(config, protocol.value.upper(), "检测中", TaskStatus.PROBING.value, "等待启动")

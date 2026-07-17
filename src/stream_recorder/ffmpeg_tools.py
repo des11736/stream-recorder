@@ -3,7 +3,7 @@ import subprocess
 from collections.abc import Callable
 from pathlib import Path
 
-from .models import OutputFormat, Protocol, StreamInfo, TaskConfig
+from .models import HlsSegmentType, OutputFormat, Protocol, StreamInfo, TaskConfig
 from .subprocess_options import hidden_console_kwargs
 from .urls import validate_stream_url
 
@@ -130,6 +130,27 @@ def build_recorder_command(
             "-movflags",
             "frag_keyframe+empty_moov+default_base_moof",
             "recording.mp4",
+        ]
+    if config.hls_segment_type is HlsSegmentType.TS:
+        return [
+            *base,
+            "-f",
+            "hls",
+            "-hls_time",
+            str(config.segment_seconds),
+            "-hls_list_size",
+            "0",
+            "-hls_playlist_type",
+            "event",
+            "-hls_segment_type",
+            "mpegts",
+            "-hls_segment_filename",
+            "segment_%012d.ts",
+            "-hls_start_number_source",
+            "epoch",
+            "-hls_flags",
+            "temp_file+program_date_time+append_list",
+            "index.m3u8",
         ]
     return [
         *base,

@@ -14,6 +14,11 @@ class OutputFormat(str, Enum):
     MP4 = "mp4"
 
 
+class HlsSegmentType(str, Enum):
+    FMP4 = "fmp4"
+    TS = "ts"
+
+
 class TaskStatus(str, Enum):
     STOPPED = "已停止"
     PROBING = "正在检测"
@@ -45,6 +50,7 @@ class TaskConfig:
     output_root: Path
     segment_seconds: int = 6
     output_format: OutputFormat = OutputFormat.HLS
+    hls_segment_type: HlsSegmentType = HlsSegmentType.FMP4
     enable_anomaly_detection: bool = True
     max_retries: int = 5
 
